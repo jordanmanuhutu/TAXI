@@ -1,0 +1,93 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+enum Role { SUPER_ADMIN ADMIN DRIVER }
+enum BookingType { BOOKING TENTATIVE CONFIRM }
+enum BookingStatus { PENDING_DRIVER CONFIRMED RELEASED CANCELLED COMPLETED REJECTED }
+
+model Hotel {
+ id String @id @default(cuid())
+ name String @unique
+ address String?
+ active Boolean @default(true)
+ users User[]
+ vehicles Vehicle[]
+ drivers Driver[]
+ bookings Booking[]
+ createdAt DateTime @default(now())
+}
+model User {
+ id String @id @default(cuid())
+ username String @unique
+ name String
+ passwordHash String
+ role Role
+ hotelId String?
+ hotel Hotel? @relation(fields:[hotelId],references:[id])
+ driver Driver?
+ createdBookings Booking[] @relation("CreatedBookings")
+ logs AuditLog[]
+ createdAt DateTime @default(now())
+}
+model Driver {
+ id String @id @default(cuid())
+ name String
+ phone String?
+ active Boolean @default(true)
+ hotelId String
+ hotel Hotel @relation(fields:[hotelId],references:[id])
+ userId String? @unique
+ user User? @relation(fields:[userId],references:[id])
+ bookings Booking[]
+}
+model Vehicle {
+ id String @id @default(cuid())
+ vehicleType String
+ plateNumber String @unique
+ active Boolean @default(true)
+ hotelId String
+ hotel Hotel @relation(fields:[hotelId],references:[id])
+ bookings Booking[]
+}
+model Booking {
+ id String @id @default(cuid())
+ bookingNumber String @unique
+ hotelId String
+ hotel Hotel @relation(fields:[hotelId],references:[id])
+ customerName String
+ customerPhone String?
+ pickupLocation String?
+ destination String?
+ bookingDate DateTime
+ pickupTime DateTime
+ endTime DateTime
+ bookingType BookingType @default(BOOKING)
+ status BookingStatus @default(PENDING_DRIVER)
+ vehicleId String
+ vehicle Vehicle @relation(fields:[vehicleId],references:[id])
+ driverId String
+ driver Driver @relation(fields:[driverId],references:[id])
+ price Decimal @db.Decimal(14,2)
+ notes String?
+ createdById String
+ createdBy User @relation("CreatedBookings",fields:[createdById],references:[id])
+ confirmedAt DateTime?
+ releasedAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ logs AuditLog[]
+ @@index([hotelId,bookingDate])
+ @@index([vehicleId,pickupTime,endTime])
+ @@index([driverId,pickupTime,endTime])
+}
+model AuditLog {
+ id String @id @default(cuid())
+ bookingId String?
+ booking Booking? @relation(fields:[bookingId],references:[id])
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ action String
+ oldValue String?
+ newValue String?
+ notes String?
+ createdAt DateTime @default(now())
+}
