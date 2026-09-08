@@ -1,1 +1,0 @@
-import {NextResponse} from 'next/server'; import {sessionCookieName} from '../../../../lib/auth'; export async function POST(req:Request){const r=NextResponse.redirect(new URL('/login',req.url));r.cookies.set(sessionCookieName,'',{httpOnly:true,expires:new Date(0),path:'/'});return r}
