@@ -1,4 +1,55 @@
 import './globals.css';
-import Link from 'next/link';
-import {getSession} from '../lib/auth';
-export default async function RootLayout({children}:{children:React.ReactNode}){const u=await getSession();return <html lang="id"><body>{u&&<aside className="sidebar"><div className="brand">Taxi<span>Ops</span><small>Internal Dispatch</small></div><nav><Link href="/dashboard">Dashboard</Link><Link href="/bookings">Bookings</Link>{u.role!=='DRIVER'&&<><Link href="/admin">Administration</Link><Link href="/reports">Reports</Link></>}{u.role==='DRIVER'&&<Link href="/driver">My Orders</Link>}</nav><div className="userbox"><b>{u.name}</b><small>{u.role.replace('_',' ')}</small><form action="/api/auth/logout" method="post"><button>Logout</button></form></div></aside>}<div className={u?'content':'public'}>{children}</div></body></html>}
+import { getSession } from '../lib/auth';
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const u = await getSession();
+
+  return (
+    <html lang="id">
+      <body>
+        {u && (
+          <aside className="sidebar">
+            <div className="brand">
+              Taxi<span>Ops</span>
+              <small>Internal Dispatch</small>
+            </div>
+
+            <nav className="sidebar-nav">
+              <a href="/dashboard">Dashboard</a>
+
+              <a href="/bookings">Bookings</a>
+
+              {u.role !== 'DRIVER' && (
+                <>
+                  <a href="/admin">Administration</a>
+                  <a href="/reports">Reports</a>
+                </>
+              )}
+
+              {u.role === 'DRIVER' && (
+                <a href="/driver">My Orders</a>
+              )}
+            </nav>
+
+            <div className="userbox">
+              <b>{u.name}</b>
+              <small>{u.role.replace('_', ' ')}</small>
+
+              <form action="/api/auth/logout" method="post">
+                <button type="submit">Logout</button>
+              </form>
+            </div>
+          </aside>
+        )}
+
+        <div className={u ? 'content' : 'public'}>
+          {children}
+        </div>
+      </body>
+    </html>
+  );
+}
