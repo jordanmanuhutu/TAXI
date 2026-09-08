@@ -24,13 +24,13 @@ export async function POST(req: Request) {
       throw new Error("Booking tidak ditemukan");
     }
 
-    // Hanya driver yang ditugaskan boleh menyelesaikan booking
-    if (u.role === "DRIVER" && booking.driverId !== u.driverId) {
+    // Hanya driver yang ditugaskan boleh reject booking
+    if (u.role !== "DRIVER" || booking.driverId !== u.driverId) {
       throw new Error("Forbidden");
     }
 
-    // Booking yang sudah selesai atau dibatalkan
-    // tidak dapat diselesaikan kembali.
+    // Booking yang sudah selesai, dibatalkan,
+    // released, atau rejected tidak dapat di-reject kembali.
     if (
       booking.status === "COMPLETED" ||
       booking.status === "CANCELLED" ||
@@ -38,14 +38,14 @@ export async function POST(req: Request) {
       booking.status === "REJECTED"
     ) {
       throw new Error(
-        `Booking dengan status ${booking.status} tidak dapat diselesaikan`
+        `Booking dengan status ${booking.status} tidak dapat di-reject`
       );
     }
 
     const updatedBooking = await prisma.booking.update({
       where: { id },
       data: {
-        status: "COMPLETED",
+        status: "REJECTED",
       },
     });
 
@@ -53,9 +53,9 @@ export async function POST(req: Request) {
       data: {
         bookingId: id,
         userId: u.id,
-        action: "COMPLETE",
+        action: "REJECT",
         oldValue: booking.status,
-        newValue: "COMPLETED",
+        newValue: "REJECTED",
       },
     });
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json(
       {
-        error: e?.message || "Gagal menyelesaikan booking",
+        error: e?.message || "Gagal melakukan reject booking",
       },
       {
         status: 400,
