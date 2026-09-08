@@ -5,12 +5,17 @@ export default async function Login() {
   const user = await getSession();
 
   if (user) {
-    redirect(user.role === 'DRIVER' ? '/driver' : '/dashboard');
+    redirect(
+      user.role === 'DRIVER'
+        ? '/driver'
+        : '/dashboard'
+    );
   }
 
   return (
     <main className="login">
       <div className="login-card">
+
         <div className="brand big">
           Taxi<span>Ops</span>
           <small>Internal Dispatch</small>
@@ -45,7 +50,10 @@ export default async function Login() {
             />
           </label>
 
-          <button className="primary">
+          <button
+            type="submit"
+            className="primary"
+          >
             Masuk
           </button>
         </form>
@@ -53,6 +61,7 @@ export default async function Login() {
         <div className="hint">
           Demo: superadmin / ChangeMe123!
         </div>
+
       </div>
     </main>
   );
