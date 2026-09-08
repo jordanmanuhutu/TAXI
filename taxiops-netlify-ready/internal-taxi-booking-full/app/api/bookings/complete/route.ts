@@ -1,4 +1,73 @@
-import {NextResponse} from 'next/server'; import {prisma} from '../../../../lib/prisma'; import {getSession} from '../../../../lib/auth';
-export async function POST(req:Request){try{const u=await getSession();if(!u)throw new Error('Unauthorized');const {id}=await req.json();const b=await prisma.booking.findUnique({where:{id}});if(!b)throw new Error('Booking tidak ditemukan');
-if('complete'==='release' && u.role==='DRIVER')throw new Error('Forbidden'); if('complete'==='reject' && (u.role!=='DRIVER'||b.driverId!==u.driverId))throw new Error('Forbidden'); if('complete'==='complete' && u.role==='DRIVER'&&b.driverId!==u.driverId)throw new Error('Forbidden'); if('complete'==='cancel' && u.role==='DRIVER')throw new Error('Forbidden');
-const status='complete'==='release'?'RELEASED':'complete'==='reject'?'REJECTED':'complete'==='cancel'?'CANCELLED':'COMPLETED'; const data:any={status}; if(status==='RELEASED')data.releasedAt=new Date(); const n=await prisma.booking.update({where:{id},data}); await prisma.auditLog.create({data:{bookingId:id,userId:u.id,action:'COMPLETE',oldValue:b.status,newValue:status}}); return NextResponse.json(n)}catch(e:any){return NextResponse.json({error:e.message},{status:400})}}
+import { NextResponse } from "next/server";
+import { prisma } from "../../../../lib/prisma";
+import { getSession } from "../../../../lib/auth";
+
+export async function POST(req: Request) {
+  try {
+    const u = await getSession();
+
+    if (!u) {
+      throw new Error("Unauthorized");
+    }
+
+    const { id } = await req.json();
+
+    if (!id) {
+      throw new Error("Booking ID wajib diisi");
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+    });
+
+    if (!booking) {
+      throw new Error("Booking tidak ditemukan");
+    }
+
+    // Hanya driver yang ditugaskan boleh menyelesaikan booking
+    if (u.role === "DRIVER" && booking.driverId !== u.driverId) {
+      throw new Error("Forbidden");
+    }
+
+    // Booking yang sudah selesai atau dibatalkan
+    // tidak dapat diselesaikan kembali.
+    if (
+      booking.status === "COMPLETED" ||
+      booking.status === "CANCELLED" ||
+      booking.status === "RELEASED" ||
+      booking.status === "REJECTED"
+    ) {
+      throw new Error(
+        `Booking dengan status ${booking.status} tidak dapat diselesaikan`
+      );
+    }
+
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: {
+        status: "COMPLETED",
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        bookingId: id,
+        userId: u.id,
+        action: "COMPLETE",
+        oldValue: booking.status,
+        newValue: "COMPLETED",
+      },
+    });
+
+    return NextResponse.json(updatedBooking);
+  } catch (e: any) {
+    return NextResponse.json(
+      {
+        error: e?.message || "Gagal menyelesaikan booking",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+}
