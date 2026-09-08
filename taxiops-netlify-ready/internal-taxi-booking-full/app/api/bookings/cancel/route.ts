@@ -1,4 +1,71 @@
-import {NextResponse} from 'next/server'; import {prisma} from '../../../../lib/prisma'; import {getSession} from '../../../../lib/auth';
-export async function POST(req:Request){try{const u=await getSession();if(!u)throw new Error('Unauthorized');const {id}=await req.json();const b=await prisma.booking.findUnique({where:{id}});if(!b)throw new Error('Booking tidak ditemukan');
-if('cancel'==='release' && u.role==='DRIVER')throw new Error('Forbidden'); if('cancel'==='reject' && (u.role!=='DRIVER'||b.driverId!==u.driverId))throw new Error('Forbidden'); if('cancel'==='complete' && u.role==='DRIVER'&&b.driverId!==u.driverId)throw new Error('Forbidden'); if('cancel'==='cancel' && u.role==='DRIVER')throw new Error('Forbidden');
-const status='cancel'==='release'?'RELEASED':'cancel'==='reject'?'REJECTED':'cancel'==='cancel'?'CANCELLED':'COMPLETED'; const data:any={status}; if(status==='RELEASED')data.releasedAt=new Date(); const n=await prisma.booking.update({where:{id},data}); await prisma.auditLog.create({data:{bookingId:id,userId:u.id,action:'CANCEL',oldValue:b.status,newValue:status}}); return NextResponse.json(n)}catch(e:any){return NextResponse.json({error:e.message},{status:400})}}
+import { NextResponse } from "next/server";
+import { prisma } from "../../../../lib/prisma";
+import { getSession } from "../../../../lib/auth";
+
+export async function POST(req: Request) {
+  try {
+    const u = await getSession();
+
+    if (!u) {
+      throw new Error("Unauthorized");
+    }
+
+    const { id } = await req.json();
+
+    if (!id) {
+      throw new Error("Booking ID wajib diisi");
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+    });
+
+    if (!booking) {
+      throw new Error("Booking tidak ditemukan");
+    }
+
+    // Driver tidak diperbolehkan membatalkan booking
+    if (u.role === "DRIVER") {
+      throw new Error("Forbidden");
+    }
+
+    // Booking yang sudah selesai atau dibatalkan
+    // tidak dapat dibatalkan kembali.
+    if (
+      booking.status === "COMPLETED" ||
+      booking.status === "CANCELLED"
+    ) {
+      throw new Error(
+        `Booking dengan status ${booking.status} tidak dapat dibatalkan`
+      );
+    }
+
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: {
+        status: "CANCELLED",
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        bookingId: id,
+        userId: u.id,
+        action: "CANCEL",
+        oldValue: booking.status,
+        newValue: "CANCELLED",
+      },
+    });
+
+    return NextResponse.json(updatedBooking);
+  } catch (e: any) {
+    return NextResponse.json(
+      {
+        error: e?.message || "Gagal membatalkan booking",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+}
